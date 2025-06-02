@@ -1,63 +1,59 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import requests
-import json
 import os
 
 app = Flask(__name__)
 
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+# Установите ваш Telegram токен и chat_id как переменные окружения или впишите вручную:
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "ВАШ_ТОКЕН_БОТА")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "ВАШ_CHAT_ID")
 
-
-def send_telegram_message(text):
+def send_telegram_message(text: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    data = {
+    payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": text,
         "parse_mode": "Markdown"
     }
     try:
-        response = requests.post(url, json=data)
-        print("Telegram response:", response.text)
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
     except Exception as e:
-        print("Telegram send error:", e)
+        print(f"Ошибка при отправке Telegram сообщения: {e}")
 
-
-@app.route('/webhook/ozan', methods=['POST'])
+@app.route("/webhook/ozan", methods=["POST"])
 def ozan_webhook():
     try:
-        print("📥 Получен POST-запрос на /webhook/ozan")
+        # Преобразуем входные данные в JSON
         data = request.get_json(force=True)
-        if isinstance(data, str):
-            data = json.loads(data)
-        print("📦 JSON от Ozan:", data)
 
-        event_type = data.get("event", "unknown")
-        transaction_id = data.get("transaction_id", "N/A")
-        amount = data.get("amount", "N/A")
+        if not isinstance(data, dict):
+            return jsonify({"error": "Invalid payload format"}), 400
 
-        msg = (
-            f"📬 *Ozan событие:*
-"
-            f"*Тип:* `{event_type}`
-"
-            f"*Транзакция:* `{transaction_id}`
-"
-            f"*Сумма:* `{amount}`"
-        )
-        send_telegram_message(msg)
+        event_type = data.get("event")
+        transaction_id = data.get("transaction_id")
+        amount = data.get("amount")
 
-        return '', 200
+        # Формируем сообщение
+        message = f'📢 *Ozan событие:* `{event_type}`\n'
 
+        if transaction_id:
+            message += f'💳 *ID транзакции:* `{transaction_id}`\n'
+
+        if amount:
+            message += f'💰 *Сумма:* `{amount}`'
+
+        send_telegram_message(message)
+
+        return jsonify({"status": "ok"}), 200
     except Exception as e:
-        print("❌ Ошибка в обработчике webhook:", e)
-        return 'Internal Server Error', 500
+        send_telegram_message(f"❌ Ошибка в webhook: {e}")
+        return jsonify({"error": str(e)}), 500
 
-
-@app.route("/", methods=["GET"])
+@app.route("/")
 def index():
-    return "OK", 200
-
+    return "Ozan Webhook Handler работает!"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port)
