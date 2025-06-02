@@ -6,6 +6,6 @@ services:
     startCommand: "python ozan_webhook_telegram.py"
     envVars:
       - key: TELEGRAM_TOKEN
-        value: "YOUR_TELEGRAM_BOT_TOKEN"
+        value: "7625480081:AAHPxh4_RAqfoJL-jCxpLtJqklNynBZUsRQ"
       - key: TELEGRAM_CHAT_ID
-        value: "YOUR_TELEGRAM_CHAT_ID"
+        value: "5792462041"
